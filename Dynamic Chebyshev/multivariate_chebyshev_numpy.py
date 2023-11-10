@@ -16,7 +16,6 @@ def cartesian_product(*arrays):
         rows N equal to the product of number of elements in input
         arrays
 
-    See https://stackoverflow.com/questions/11144513/cartesian-product-of-x-and-y-array-points-into-single-array-of-2d-points
     """
     mg = np.meshgrid(*arrays, indexing='ij')
     st = np.stack(mg)
@@ -70,13 +69,12 @@ def chebyshev_inverse_transform(y, a = -1.0, b = 1.0):
 
 def chebyshev_points(degrees):
     """
-    Calculate the Chebyshev points of second kind used for interpolation.
+    Calculate the Chebyshev points (of second kind) used for interpolation.
 
     Parameters
     ----------
     degrees : list of int
         each entry represents the maximum polynomial degree per dimension,
-        len(degrees) corresponds to the number of dimensions
 
     Returns
     -------
