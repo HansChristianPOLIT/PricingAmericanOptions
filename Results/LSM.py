@@ -2,6 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 
+from scipy.special import factorial 
+
+
 class MonteCarloOptionPricing:
     def __init__(self, r, S0: float, K: float, T: float, σ: float,
                  dim: int, n: int, seed: int):
@@ -91,7 +94,7 @@ class MonteCarloOptionPricing:
         self.S = np.exp(S)
         return self.S
     
-    def MertonJumpDiffusion(self,α: float, β: float, λ: float):
+    def MertonJumpDiffusion(self, α: float, β: float, λ: float):
         """
         Generate Merton Jump Diffusion paths according to Algorithm 4 assuming log-normal distribution of shocks.
         Parameters:
@@ -102,9 +105,6 @@ class MonteCarloOptionPricing:
         Returns:
         np.ndarray: Simulated paths of the asset price
         """
-        self.α = α
-        self.β = β
-        self.λ = λ
         
         # unpack parameters
         Δ = self.Δ
@@ -114,9 +114,6 @@ class MonteCarloOptionPricing:
         r = self.r
         σ = self.σ
         n = self.n
-        α = self.α
-        β = self.β
-        λ = self.λ
         dim = self.dim
 
         S[:,0] = np.log(S0) 
@@ -152,9 +149,6 @@ class MonteCarloOptionPricing:
         Returns:
         np.ndarray: Simulated paths of the asset price
         """
-        self.α = α
-        self.β = β
-        self.λ = λ
         
         # unpack parameters
         Δ = self.Δ
@@ -164,9 +158,6 @@ class MonteCarloOptionPricing:
         r = self.r
         σ = self.σ
         n = self.n
-        α = self.α
-        β = self.β
-        λ = self.λ
         dim = self.dim
         
         # No changes up to the definition of c
@@ -222,14 +213,15 @@ class MonteCarloOptionPricing:
         return self.S
     
     def BS_option_value(self, otype: str = 'put'):
-        ''' Closed-form valuation of a European option in Black-Scholes.
+        """ 
+        Closed form non-dividend valuation of a European option in Black-Scholes.
         
         Parameters:
-        otype (str): Option type either call or put (defualt: put)
+        otype (str): Option type either call or put (default: put)
         
         Returns:
         float: Option price of a European put option
-        '''
+        """
         
         # unpack 
         S0 = self.S0
@@ -251,6 +243,48 @@ class MonteCarloOptionPricing:
     
         return value
     
+    def merton_jump_option_value(self, α, β, λ, max_iter=100 , tol=1e-15):
+        """ 
+        Semi-closed form valuation of Merton's Log-Normal Jump-Diffusion Model for a European put option.
+        
+        Parameters:
+        α (float): Mean of log-normal jump size
+        β (float): Volatility of log-normal jump size
+        λ (float): Intensity rate of the Poisson process
+        max_iter (int): Maximum number of iterations for the series expansion. Default is 100.
+        tol (float): Stopping condition for the series expansion. Default is 1e-15.
+        
+        Returns:
+        float: Option price of a European put option under Jump Difussion
+        """
+        
+        # unpack
+        S0 = self.S0
+        K = self.K
+        r = self.r
+        σ = self.σ
+        T = self.T
+        
+        value = 0
+        max_iter = int(max_iter)  # Ensure max_iter is an integer
+        for k in range(max_iter):
+            r_k = r - λ*(np.exp(α + 0.5*β**2)-1) + (k*(α + 0.5*β**2)) / T
+            σ_k = np.sqrt(σ**2 + (k* β**2) / T)
+            
+            # BS put option
+            d1 = (np.log(S0/K) + (r_k + 0.5*σ_k**2)*T) / (σ_k*np.sqrt(T))
+            d2 = d1 - σ_k*np.sqrt(T)
+            BS_value = K * np.exp(-r_k*T)*stats.norm.cdf(-d2) - S0*stats.norm.cdf(-d1)
+            
+            # Loop to find semi closed solutino
+            sum_k = (np.exp(-(np.exp(α + 0.5*β**2))*λ*T) \
+                    * ((np.exp(α + 0.5*β**2))*λ*T)**k / (factorial(k))) * BS_value
+            value += sum_k
+            if sum_k < tol: 
+                return value
+        return value # return the value of the option when the maximum value of k is reached
+    
+   
     def american_option_LSM(self, poly_degree: int, otype: str = 'put'):
         """
         American option pricing using the LSM as outlined in Algorithm 1.
