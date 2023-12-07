@@ -1,14 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
-
 from scipy.special import factorial 
-
 
 class MonteCarloOptionPricing:
     def __init__(self, r, S0: float, K: float, T: float, σ: float,
-                 dim: int, n: int, seed: int):
-        """ Class for pricing American OptionsLSM. 
+                 dim: int, n: int, seed: int, use_AV: bool = False):
+        """ 
+        Class for pricing American OptionsLSM. 
         
         Parameters: 
         S0 (float): Initial asset value
@@ -17,7 +16,8 @@ class MonteCarloOptionPricing:
         r (float): risk-free interest rate
         σ (float): volatility coefficient for diffusion
         dim (int): number of paths to simulate
-        n (int): between time 0 and time T, the number of time steps 
+        n (int): between time 0 and time T, the number of time steps
+        use_AV (bool): Flag to use Antithetic Variates method (default: False)
         """
         
         assert σ >= 0, 'volatility cannot be less than zero'
@@ -38,11 +38,20 @@ class MonteCarloOptionPricing:
         self.dim = dim
         self.Δ = self.T / self.n
         self.df = np.exp(-self.r*self.Δ)
-        self.Z = np.random.normal(0, 1, (self.dim, self.n-1)) # white noise (drawn all at once)
+        self.use_AV = use_AV
+        
+        if use_AV:
+            assert dim % 2 == 0, 'For AV, the number of paths ("dim") must be even'
+            half_dim = self.dim // 2
+            Z_half = np.random.normal(0, 1, (half_dim, self.n - 1)) #Z_half matrix with dimension (half_dim, self.n-1), representing random increments of the asset´s price over time for half the paths'
+            self.Z = np.concatenate((Z_half, -Z_half), axis=0)  # Antithetic variates. Creating full matrix self:Z by concatenating Z_half with its negation -Z.half.
+        else:
+            self.Z = np.random.normal(0, 1, (self.dim, self.n - 1))  # Original method
         self.S = np.full((self.dim, self.n), np.nan)  # Allocate space for stock price process, with an extra step for initial value
 
     def GeometricBrownianMotion(self):
-        """ Generate GBM paths according to Algorithm 3.
+        """ 
+        Generate GBM paths according to Algorithm 3.
         
         Returns:
         np.ndarray: Simulated paths of the asset price.
@@ -68,7 +77,8 @@ class MonteCarloOptionPricing:
     ### Vectorized Version ###
     ##########################
     def GeometricBrownianMotion_vec(self):
-        """ Generate GBM paths according to Algorithm 3.
+        """ 
+        Generate GBM paths according to Algorithm 3.
 
         Returns:
         np.ndarray: Simulated paths of the asset price.
@@ -160,7 +170,6 @@ class MonteCarloOptionPricing:
         n = self.n
         dim = self.dim
         
-        # No changes up to the definition of c
         c = r - 0.5*σ**2 - λ*(np.exp(α + 0.5*β**2) - 1)
 
         # Generate Poisson and (log-)normal random jumps for all paths and time steps at once
@@ -284,7 +293,6 @@ class MonteCarloOptionPricing:
                 return value
         return value # return the value of the option when the maximum value of k is reached
     
-   
     def american_option_LSM(self, poly_degree: int, otype: str = 'put'):
         """
         American option pricing using the LSM as outlined in Algorithm 1.
@@ -307,6 +315,12 @@ class MonteCarloOptionPricing:
         dim = self.dim
         df = self.df
         
+        # Initialize exercise_times array to store exercise times for each path
+        exercise_times = np.full(dim, self.T)  # Initialize with T (no exercise)
+        
+        # Initialize an array to store payoffs
+        payoffs = np.zeros(dim)
+        
         # inner values
         if otype == 'call':
             self.intrinsic_val = np.maximum(S - K, 0)
@@ -320,7 +334,7 @@ class MonteCarloOptionPricing:
         for i in range(n - 2, 0, -1): # start at second to last and end at second to first
             # a. find itm path 
             # (potentially) better estimate the continuation value
-            itm_path = np.where(self.intrinsic_val[:,i]>0)  # evaluate: S[:,i] vs. K
+            itm_path = np.where(self.intrinsic_val[:,i] > 0)  # evaluate: S[:,i] vs. K
             V = V * df # discount next period value
             V_itm = V[itm_path[0]] # define subset (note, we need to set [0] due to np.where being tuple)
             S_itm = S[itm_path[0],i]
@@ -334,16 +348,20 @@ class MonteCarloOptionPricing:
                 C[itm_path[0]] = np.polyval(rg, S_itm)  # evaluate conditional expectation
             
             # c. Calculation of value function at i 
-            #if hold: V = 0, if exercise: V = intrinsic value
-            V = np.where(self.intrinsic_val[:,i]>C, self.intrinsic_val[:,i], V)
-    
-        self.V0 = df*np.average(V)
-
-        #print(f'American {otype} LSM'
-        #      f'\n polynomial degree = {poly_degree} \n S0 {S0:.1f} \n K {K:.1f} \n'
-        #      f'Option Value {self.V0:.3f}')
-
-        return self.V0
+            # if hold: V = 0, if exercise: V = intrinsic value
+            exercise_condition = self.intrinsic_val[:, i] > C
+            V = np.where(exercise_condition, self.intrinsic_val[:, i], V)
+            
+            for idx in np.where(exercise_condition)[0]:
+                payoffs[idx] = self.intrinsic_val[idx, i]
+                exercise_times[idx] = i * self.Δ
+            
+            # Update exercise times for paths that exercised
+            exercise_times[exercise_condition] = i * self.Δ
+            
+        self.V0 = df * np.average(V)
+        
+        return self.V0, exercise_times
 
     def plot_paths(self):
         """

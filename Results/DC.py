@@ -6,7 +6,8 @@ from scipy.interpolate import interp1d
 class DynamicChebyshev:
     def __init__(self, r, S0: float, K: float, T: float, σ: float,
                  dim: int, n: int, n_chebyshev_pol: int, seed: int):
-        """ Class for pricing American OptionsLSM. 
+        """ 
+        Class for pricing American OptionsLSM. 
         
         Parameters: 
         S0 (float): Initial asset value
@@ -46,7 +47,8 @@ class DynamicChebyshev:
         self.chebypol_eval = np.zeros((self.dim, self.n_chebyshev_point, self.n_chebyshev_point))
 
     def trunc_domain(self):
-        """ Defines truncated general domain, χ.
+        """ 
+        Defines truncated general domain, χ.
 
         Returns:
         list: A list containing the lower and upper bounds of the truncated domain.
@@ -111,7 +113,8 @@ class DynamicChebyshev:
         return 2*(x-a)/(b-a) - 1
     
     def nodal_points(self, χ):
-        """ nodal points.
+        """ 
+        Nodal points.
         
         Parameters:
         χ (list): The truncated general domain.
@@ -129,7 +132,8 @@ class DynamicChebyshev:
         return xknots
 
     def generalized_MC(self, χ, xknots):
-        """ Compute generalized moments using Monte Carlo.
+        """ 
+        Compute generalized moments using Monte Carlo.
         
         Parameters:
             χ (list): The truncated general domain.
@@ -179,7 +183,8 @@ class DynamicChebyshev:
         return Γ
     
     def dynamic_chebyshev(self, xknots, Γ):
-        """ Price option using backward induction (BI). 
+        """ 
+        Price option using backward induction (BI). 
         
         Parameters:
         xknots (ndarray): Nodal points in the domain.
