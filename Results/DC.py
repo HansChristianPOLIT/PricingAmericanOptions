@@ -5,7 +5,7 @@ from scipy.interpolate import interp1d
 
 class DynamicChebyshev:
     def __init__(self, r, S0: float, K: float, T: float, σ: float,
-                 dim: int, n: int, n_chebyshev_pol: int, seed: int):
+                 dim: int, n: int, n_chebyshev_pol: int, seed: int, use_AV: bool = False):
         """ 
         Class for pricing American OptionsLSM. 
         
@@ -18,6 +18,7 @@ class DynamicChebyshev:
         dim (int): number of paths to simulate
         n (int): between time 0 and time T, the number of time steps 
         n_chebyshev_pol (int): degree of chebyshev polynomials
+        use_AV (bool): Flag to use Antithetic Variates method (default: False)
         """
         
         assert σ >= 0, 'volatility cannot be less than zero'
@@ -27,7 +28,7 @@ class DynamicChebyshev:
         assert dim >= 0, 'no. of simulation paths cannot be less than zero'
         
         # Set the random seed for reproducibility
-        rng = np.random.RandomState(seed)
+        np.random.seed(seed)
         
         self.r = r
         self.S0 = S0
@@ -41,14 +42,22 @@ class DynamicChebyshev:
         self.C = np.zeros((self.n_chebyshev_point, self.n-1))
         self.dim = dim
         self.Δ = self.T / self.n
-        self.Z = rng.normal(0, 1, (self.dim, self.n_chebyshev_point))
         self.x_next = np.zeros((self.dim, self.n_chebyshev_point))
         self.Γ = np.zeros((self.n_chebyshev_point, self.n_chebyshev_point)) # generalized moment
         self.chebypol_eval = np.zeros((self.dim, self.n_chebyshev_point, self.n_chebyshev_point))
+        self.use_AV = use_AV
+        
+        if use_AV:
+            assert dim % 2 == 0, 'For AV, the number of paths ("dim") must be even'
+            half_dim = self.dim // 2
+            Z_half = np.random.normal(0, 1, (half_dim, self.n_chebyshev_point)) #Z_half matrix with dimension (half_dim, self.n-1), representing random increments of the asset´s price over time for half the paths'
+            self.Z = np.concatenate((Z_half, -Z_half), axis=0)  # Antithetic variates. Creating full matrix self:Z by concatenating Z_half with its negation -Z.half.
+        else:
+            self.Z = np.random.normal(0, 1, (self.dim, self.n_chebyshev_point))
 
-    def trunc_domain(self):
+    def trunc_domain_GBM(self):
         """ 
-        Defines truncated general domain, χ.
+        Defines truncated general domain, χ, for GBM.
 
         Returns:
         list: A list containing the lower and upper bounds of the truncated domain.
@@ -66,6 +75,26 @@ class DynamicChebyshev:
 
         return χ
     
+    def trunc_domain_JumpMerton(self, α: float, β: float, λ: float):
+        """ 
+        Defines truncated general domain, χ, for Jump Merton.
+
+        Returns:
+        list: A list containing the lower and upper bounds of the truncated domain.
+        """
+        
+        # unpack 
+        S0 = self.S0
+        r = self.r
+        T = self.T
+        σ = self.σ
+
+        μ = np.log(S0) + (r - 0.5*σ**2 - λ*(np.exp(α + 0.5*β**2) - 1))*T
+        trunc = 10 * np.sqrt(T) * σ # truncate
+        χ = [μ - trunc, μ + trunc] # truncated domain
+
+        return χ
+    
     def chebyshev_points_1d(self,degree: int):
         """
         Calculate the chebyshev points used for one-dimensional interpolation.
@@ -76,6 +105,7 @@ class DynamicChebyshev:
         Returns:
         1d array
         """
+        
         # unpack 
         n_chebyshev_pol = self.n_chebyshev_pol
         
@@ -122,6 +152,7 @@ class DynamicChebyshev:
         Returns:
         ndarray: A 1D array of nodal points in the domain.
         """
+        
         # unpack 
         n_chebyshev_pol = self.n_chebyshev_pol
         
@@ -131,7 +162,66 @@ class DynamicChebyshev:
 
         return xknots
 
-    def generalized_MC(self, χ, xknots):
+    def GBM_path(self, xknots):
+        """ 
+        Compute Monte Carlo paths using Geometric Brownian Motion under risk-neutral measure.
+        """
+        
+        # unpack
+        Δ = self.Δ
+        σ = self.σ
+        Z = self.Z
+        r = self.r 
+        n_chebyshev_point = self.n_chebyshev_point
+        x_next = self.x_next
+        
+        # simulate stock process
+        for i in range(n_chebyshev_point):
+            x_next[:,i] = xknots[i] + (r-0.5*σ**2)*Δ + σ*np.sqrt(Δ)*Z[:,i]
+        
+        return x_next
+        
+    def MertonJumpDiffusion_vec(self, xknots, α: float, β: float, λ: float):
+        """
+        Generate Merton Jump Diffusion paths assuming log-normal distribution of shocks.
+        Parameters:
+        α (float): Mean of log-normal jump size
+        β (float): Volatility of log-normal jump size
+        λ (float): Intensity rate of the Poisson process
+        
+        Returns:
+        np.ndarray: Simulated paths of the asset price
+        """
+        
+        # unpack 
+        Δ = self.Δ
+        σ = self.σ
+        Z = self.Z
+        r = self.r 
+        n_chebyshev_point = self.n_chebyshev_point
+        x_next = self.x_next
+        dim = self.dim
+        
+        # drift corrected term
+        c = r - 0.5*σ**2 - λ*(np.exp(α + 0.5*β**2) - 1)
+        
+        # Generate Poisson and (log-)normal random jumps for all paths and time steps at once
+        N = np.random.poisson(λ*Δ, (self.dim, self.n_chebyshev_point))  # Poisson process for the number of jumps
+        Z_2 = np.random.normal(0, 1, (self.dim, self.n_chebyshev_point))  # Normal random variables for the jump sizes
+        
+        # Calculate the jump sizes for all paths and time steps
+        M = α * N + β*np.sqrt(N)*Z_2
+        
+        # if no jump set M = 0
+        M = np.where(N > 0, M, 0)
+        
+        # Calculate the combined diffusion and jump process for all knots
+        for i in range(n_chebyshev_point):
+            x_next[:,i] = xknots[i] + c*Δ + σ*np.sqrt(Δ)*Z[:,i] + M[:,i]
+    
+        return x_next
+        
+    def generalized_moments(self, χ, xknots):
         """ 
         Compute generalized moments using Monte Carlo.
         
@@ -153,9 +243,7 @@ class DynamicChebyshev:
         Γ = self.Γ 
         chebypol_eval = self.chebypol_eval
         
-        # step 1: simulate stock pricess process
-        for i in range(n_chebyshev_point):
-            x_next[:,i] = xknots[i] + (r-0.5*σ**2)*Δ + σ*np.sqrt(Δ)*Z[:,i]
+        # step 1: check if simulate stock process is within domain
         check = (x_next > χ[0]) & (x_next < χ[1]) # indicator function
         valid_points = np.sum(check, axis=0)
         

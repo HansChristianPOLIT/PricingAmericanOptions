@@ -57,7 +57,7 @@ class MonteCarloOptionPricing:
         np.ndarray: Simulated paths of the asset price.
         """
         
-        # unpack parameters
+        # unpack 
         Δ = self.Δ
         Z = self.Z
         S = self.S
@@ -83,8 +83,8 @@ class MonteCarloOptionPricing:
         Returns:
         np.ndarray: Simulated paths of the asset price.
         """
-
-        # unpack parameters
+        
+        # unpack 
         Δ = self.Δ
         Z = self.Z
         S = self.S
@@ -160,7 +160,7 @@ class MonteCarloOptionPricing:
         np.ndarray: Simulated paths of the asset price
         """
         
-        # unpack parameters
+        # unpack 
         Δ = self.Δ
         Z = self.Z
         S = self.S
@@ -170,6 +170,7 @@ class MonteCarloOptionPricing:
         n = self.n
         dim = self.dim
         
+        # drift corrected term
         c = r - 0.5*σ**2 - λ*(np.exp(α + 0.5*β**2) - 1)
 
         # Generate Poisson and (log-)normal random jumps for all paths and time steps at once
@@ -200,16 +201,14 @@ class MonteCarloOptionPricing:
         Returns:
         np.ndarray: Simulated paths of the asset price
         """ 
-        assert γ>= 0, 'cant let elasticity be negative due to leverage effect'
-        self.γ = γ
+        assert γ>= 0, 'Cannot let elasticity be negative due to leverage effect'
 
-        # unpack parameters
+        # unpack 
         Δ = self.Δ
         Z = self.Z
         S = self.S
         S0 = self.S0
         r = self.r
-        γ = self.γ
         σ = self.σ
         n = self.n
 
