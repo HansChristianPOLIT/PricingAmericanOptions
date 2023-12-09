@@ -2,6 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.special import factorial 
+# Global settings for LaTeX rendering
+plt.rcParams['text.usetex'] = True
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['mathtext.fontset'] = 'cm'
 
 class MonteCarloOptionPricing:
     def __init__(self, r, S0: float, K: float, T: float, σ: float,
