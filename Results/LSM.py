@@ -366,6 +366,7 @@ class MonteCarloOptionPricing:
         """
         Plot simulated stock price paths along with the mean path.
         """
+        
         # Define time interval
         time = np.linspace(0, self.T, self.n)  # Ensure to include the initial time step
 

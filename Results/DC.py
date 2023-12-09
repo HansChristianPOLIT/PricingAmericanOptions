@@ -70,7 +70,7 @@ class DynamicChebyshev:
         σ = self.σ
 
         μ = np.log(S0) + (r - 0.5*σ**2)*T
-        trunc = 3 * np.sqrt(T) * σ # truncate
+        trunc = 3 * np.sqrt(T) * σ # define truncation
         χ = [μ - trunc, μ + trunc] # truncated domain
 
         return χ
@@ -78,6 +78,11 @@ class DynamicChebyshev:
     def trunc_domain_JumpMerton(self, α: float, β: float, λ: float):
         """ 
         Defines truncated general domain, χ, for Jump Merton.
+        
+        Parameters:
+        α (float): Mean of log-normal jump size
+        β (float): Volatility of log-normal jump size
+        λ (float): Intensity rate of the Poisson process
 
         Returns:
         list: A list containing the lower and upper bounds of the truncated domain.
@@ -90,7 +95,7 @@ class DynamicChebyshev:
         σ = self.σ
 
         μ = np.log(S0) + (r - 0.5*σ**2 - λ*(np.exp(α + 0.5*β**2) - 1))*T
-        trunc = 10 * np.sqrt(T) * σ # truncate
+        trunc = 12 * np.sqrt(T) * σ # define truncation
         χ = [μ - trunc, μ + trunc] # truncated domain
 
         return χ
@@ -165,6 +170,12 @@ class DynamicChebyshev:
     def GBM_path(self, xknots):
         """ 
         Compute Monte Carlo paths using Geometric Brownian Motion under risk-neutral measure.
+        
+        Parameters:
+        xknots (numpy.ndarray): Initial values of the asset at each point in the Chebyshev grid.
+
+        Returns:
+        numpy.ndarray: Simulated asset paths.
         """
         
         # unpack
@@ -183,14 +194,16 @@ class DynamicChebyshev:
         
     def MertonJumpDiffusion_vec(self, xknots, α: float, β: float, λ: float):
         """
-        Generate Merton Jump Diffusion paths assuming log-normal distribution of shocks.
+        Generates paths for the Merton Jump Diffusion model assuming log-normal distribution of shocks.
+
         Parameters:
-        α (float): Mean of log-normal jump size
-        β (float): Volatility of log-normal jump size
-        λ (float): Intensity rate of the Poisson process
-        
+        xknots (numpy.ndarray): Initial values of the asset at each point in the Chebyshev grid.
+        α (float): Mean of log-normal jump size.
+        β (float): Volatility of log-normal jump size.
+        λ (float): Intensity rate of the Poisson process.
+
         Returns:
-        np.ndarray: Simulated paths of the asset price
+        numpy.ndarray: Simulated paths of the asset price.
         """
         
         # unpack 
@@ -220,17 +233,43 @@ class DynamicChebyshev:
             x_next[:,i] = xknots[i] + c*Δ + σ*np.sqrt(Δ)*Z[:,i] + M[:,i]
     
         return x_next
+    
+    def CEV_path(self, xknots, γ: float):
+        """ 
+        Computes Monte Carlo paths using the Constant Elasticity of Variance (CEV) model.
+
+        Parameters:
+        xknots (numpy.ndarray): Initial values of the asset at each point in the Chebyshev grid.
+        γ (float): Parameter governing elasticity with respect to price.
+
+        Returns:
+        numpy.ndarray: Simulated asset paths according to the CEV model.
+        """
+        
+        # unpack
+        Δ = self.Δ
+        σ = self.σ
+        Z = self.Z
+        r = self.r 
+        n_chebyshev_point = self.n_chebyshev_point
+        x_next = self.x_next
+
+        # simulate stock process (note, CEV is the log-dynamics due to how DC is setup!)
+        for i in range(n_chebyshev_point):
+            x_next[:,i] = xknots[i] + (r-0.5*σ**2*xknots[i]**(γ-2))*Δ + σ*xknots[i]**(γ*0.5 -1)*np.sqrt(Δ)*Z[:,i] 
+                                    
+        return x_next
         
     def generalized_moments(self, χ, xknots):
         """ 
-        Compute generalized moments using Monte Carlo.
-        
+        Computes generalized moments using Monte Carlo simulation.
+
         Parameters:
-            χ (list): The truncated general domain.
-            xknots (ndarray): Nodal points in the domain.
+        χ (list): The truncated general domain.
+        xknots (numpy.ndarray): Nodal points in the domain.
 
         Returns:
-            ndarray: A 2D array of generalized moments.
+        numpy.ndarray: A 2D array of generalized moments.
         """
         
         # unpack
@@ -272,14 +311,14 @@ class DynamicChebyshev:
     
     def dynamic_chebyshev(self, xknots, Γ):
         """ 
-        Price option using backward induction (BI). 
-        
+        Prices an option using backward induction based on Chebyshev polynomial approximations.
+
         Parameters:
-        xknots (ndarray): Nodal points in the domain.
-        Γ (ndarray): Generalized moments.
+        xknots (numpy.ndarray): Nodal points in the domain.
+        Γ (numpy.ndarray): Generalized moments.
 
         Returns:
-        float: The option price at time zero
+        float: The option price at time zero.
         """
         
         # unpack
