@@ -317,12 +317,14 @@ class MonteCarloOptionPricing:
         n = self.n
         dim = self.dim
         df = self.df
+        T = self.T
+        Δ = self.Δ
         
         # Initialize exercise_times array to store exercise times for each path
-        exercise_times = np.full(dim, self.T)  # Initialize with T (no exercise)
+        self.exercise_times = np.full(dim, T)  # Initialize with T (no exercise)
         
         # Initialize an array to store payoffs
-        payoffs = np.zeros(dim)
+        self.payoffs = np.zeros(dim)
         
         # inner values
         if otype == 'call':
@@ -356,12 +358,12 @@ class MonteCarloOptionPricing:
             V = np.where(exercise_condition, self.intrinsic_val[:, i], V)
             
             for idx in np.where(exercise_condition)[0]:
-                payoffs[idx] = self.intrinsic_val[idx, i]
-                exercise_times[idx] = i * self.Δ
+                self.payoffs[idx] = self.intrinsic_val[idx, i]
+                self.exercise_times[idx] = i * Δ
             
             # Update exercise times for paths that exercised
-            exercise_times[exercise_condition] = i * self.Δ
+            self.exercise_times[exercise_condition] = i * Δ
             
         self.V0 = df * np.average(V)
         
-        return self.V0, exercise_times
+        return self.V0, self.exercise_times, self.payoffs

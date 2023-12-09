@@ -89,3 +89,27 @@ def plot_truncated_domain(domain, chebyshev_polynomials, x_next, output_path):
     
     plt.savefig(output_path, bbox_inches='tight')
     plt.show()
+    
+###################
+### Payoff Plot ###
+###################
+def plot_payoffs(american_payoffs, control_payoffs, x_limits, y_limits, x_label='Control Payoffs', y_label='American Payoffs'):
+    """
+    Plots American payoffs against European Control payoffs.
+
+    Parameters:
+    american_payoffs (array-like): The American option payoffs.
+    control_payoffs (array-like): The Control option payoffs.
+    x_label (str, optional): Label for the X-axis. Default is 'Control Payoffs'.
+    y_label (str, optional): Label for the Y-axis. Default is 'American Payoffs'.
+    x_limits (tuple): Limits for the X-axis.
+    y_limits (tuple): Limits for the Y-axis.
+    """
+
+    plt.scatter(control_payoffs, american_payoffs, marker='*', label='Payoffs')
+    plt.tick_params(axis='both', direction='in', length=6, width=1, colors='black', grid_alpha=0.5, labelsize=14)
+    plt.xlabel(x_label, size=14)
+    plt.ylabel(y_label,size=14)
+    plt.xlim(x_limits)
+    plt.ylim(y_limits)
+    plt.show()
