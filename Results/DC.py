@@ -55,7 +55,7 @@ class DynamicChebyshev:
         else:
             self.Z = np.random.normal(0, 1, (self.dim, self.n_chebyshev_point))
 
-    def trunc_domain_GBM(self):
+    def calculate_truncated_domain_GBM(self):
         """ 
         Defines truncated general domain, χ, for GBM.
 
@@ -75,7 +75,7 @@ class DynamicChebyshev:
 
         return χ
     
-    def trunc_domain_JumpMerton(self, α: float, β: float, λ: float):
+    def calculate_truncated_domain_JumpMerton(self, α: float, β: float, λ: float):
         """ 
         Defines truncated general domain, χ, for Jump Merton.
         
@@ -147,7 +147,7 @@ class DynamicChebyshev:
 
         return 2*(x-a)/(b-a) - 1
     
-    def nodal_points(self, χ):
+    def calculate_nodal_points(self, χ):
         """ 
         Nodal points.
         
@@ -167,7 +167,7 @@ class DynamicChebyshev:
 
         return xknots
 
-    def GBM_path(self, xknots):
+    def generate_GBM_path(self, xknots):
         """ 
         Compute Monte Carlo paths using Geometric Brownian Motion under risk-neutral measure.
         
@@ -192,7 +192,7 @@ class DynamicChebyshev:
         
         return x_next
         
-    def MertonJumpDiffusion_vec(self, xknots, α: float, β: float, λ: float):
+    def generate_Jump_path(self, xknots, α: float, β: float, λ: float):
         """
         Generates paths for the Merton Jump Diffusion model assuming log-normal distribution of shocks.
 
@@ -234,7 +234,7 @@ class DynamicChebyshev:
     
         return x_next
     
-    def CEV_path(self, xknots, γ: float):
+    def generate_CEV_path(self, xknots, γ: float):
         """ 
         Computes Monte Carlo paths using the Constant Elasticity of Variance (CEV) model.
 
@@ -260,7 +260,7 @@ class DynamicChebyshev:
                                     
         return x_next
         
-    def generalized_moments(self, χ, xknots):
+    def compute_generalized_moments(self, χ, xknots):
         """ 
         Computes generalized moments using Monte Carlo simulation.
 
@@ -309,7 +309,7 @@ class DynamicChebyshev:
         
         return Γ
     
-    def dynamic_chebyshev(self, xknots, Γ):
+    def price_option_with_dynamic_chebyshev(self, xknots, Γ):
         """ 
         Prices an option using backward induction based on Chebyshev polynomial approximations.
 

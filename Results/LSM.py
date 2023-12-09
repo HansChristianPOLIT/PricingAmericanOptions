@@ -2,14 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 from scipy.special import factorial 
-# Global settings for LaTeX rendering
-plt.rcParams['text.usetex'] = True
-plt.rcParams['font.family'] = 'serif'
-plt.rcParams['mathtext.fontset'] = 'cm'
 
 class MonteCarloOptionPricing:
     def __init__(self, r, S0: float, K: float, T: float, σ: float,
-                 dim: int, n: int, seed: int, use_AV: bool = False):
+                 λ: float, dim: int, n: int, seed: int, use_AV: bool = False):
         """ 
         Class for pricing American OptionsLSM. 
         
@@ -19,6 +15,7 @@ class MonteCarloOptionPricing:
         T (float): time to maturity, in years, a float number
         r (float): risk-free interest rate
         σ (float): volatility coefficient for diffusion
+        λ (float): Intensity rate of the Poisson process
         dim (int): number of paths to simulate
         n (int): between time 0 and time T, the number of time steps
         use_AV (bool): Flag to use Antithetic Variates method (default: False)
@@ -39,6 +36,7 @@ class MonteCarloOptionPricing:
         self.T = T
         self.σ = σ
         self.n = n
+        self.λ = λ
         self.dim = dim
         self.Δ = self.T / self.n
         self.df = np.exp(-self.r*self.Δ)
@@ -52,6 +50,10 @@ class MonteCarloOptionPricing:
         else:
             self.Z = np.random.normal(0, 1, (self.dim, self.n - 1))  # Original method
         self.S = np.full((self.dim, self.n), np.nan)  # Allocate space for stock price process, with an extra step for initial value
+        
+        # Generate Poisson and (log-)normal random jumps for all paths and time steps at once
+        self.N = np.random.poisson(self.λ*self.Δ, (self.dim, self.n-1))  # Poisson process for the number of jumps#
+        self.Z_2 = np.random.normal(0, 1, (self.dim, self.n-1))  # Normal random variables for the jump sizes
 
     def GeometricBrownianMotion(self):
         """ 
@@ -108,7 +110,7 @@ class MonteCarloOptionPricing:
         self.S = np.exp(S)
         return self.S
     
-    def MertonJumpDiffusion(self, α: float, β: float, λ: float):
+    def MertonJumpDiffusion(self, α: float, β: float):
         """
         Generate Merton Jump Diffusion paths according to Algorithm 4 assuming log-normal distribution of shocks.
         Parameters:
@@ -123,6 +125,9 @@ class MonteCarloOptionPricing:
         # unpack parameters
         Δ = self.Δ
         Z = self.Z
+        Z_2 = self.Z_2
+        N = self.N
+        λ = self.λ
         S = self.S
         S0 = self.S0
         r = self.r
@@ -132,10 +137,6 @@ class MonteCarloOptionPricing:
 
         S[:,0] = np.log(S0) 
         c = r - 0.5*σ**2 - λ*(np.exp(α + 0.5*β**2) - 1)
-        
-        # Generate Poisson and (log-)normal random jumps for all paths and time steps at once
-        N = np.random.poisson(λ*Δ, (dim, n-1))  # Poisson process for the number of jumps
-        Z_2 = np.random.normal(0, 1, (dim, n-1))  # Normal random variables for the jump sizes
         
         for j in range(1,n):
             # Compute jump sizes for each path
@@ -152,7 +153,7 @@ class MonteCarloOptionPricing:
     ##########################
     ### Vectorized Version ###
     ##########################
-    def MertonJumpDiffusion_vec(self, α: float, β: float, λ: float):
+    def MertonJumpDiffusion_vec(self, α: float, β: float):
         """
         Generate Merton Jump Diffusion paths according to Algorithm 4 assuming log-normal distribution of shocks.
         Parameters:
@@ -167,6 +168,9 @@ class MonteCarloOptionPricing:
         # unpack 
         Δ = self.Δ
         Z = self.Z
+        Z_2 = self.Z_2
+        N = self.N
+        λ = self.λ
         S = self.S
         S0 = self.S0
         r = self.r
@@ -176,11 +180,7 @@ class MonteCarloOptionPricing:
         
         # drift corrected term
         c = r - 0.5*σ**2 - λ*(np.exp(α + 0.5*β**2) - 1)
-
-        # Generate Poisson and (log-)normal random jumps for all paths and time steps at once
-        N = np.random.poisson(λ*Δ, (dim, n-1))  # Poisson process for the number of jumps
-        Z_2 = np.random.normal(0, 1, (dim, n-1))  # Normal random variables for the jump sizes
-
+        
         # Calculate the jump sizes for all paths and time steps
         M = α * N + β*np.sqrt(N)*Z_2
         
@@ -365,29 +365,3 @@ class MonteCarloOptionPricing:
         self.V0 = df * np.average(V)
         
         return self.V0, exercise_times
-
-    def plot_paths(self):
-        """
-        Plot simulated stock price paths along with the mean path.
-        """
-        
-        # Define time interval
-        time = np.linspace(0, self.T, self.n)  # Ensure to include the initial time step
-
-        # Calculate the mean of the paths at each time step
-        mean_path = np.mean(self.S, axis=0)
-
-        # Plot
-        plt.figure(figsize=(10, 6))
-        
-        plt.plot(time, self.S.T, lw=1, alpha=0.25)
-
-        # Plot the mean path with a higher alpha and a different color for visibility
-        plt.plot(time, mean_path, 'b', lw=2, alpha=0.75, label='Mean Path')
-
-        plt.xlabel("Time, $t$")
-        plt.ylabel("Stock Price, $S_t$")
-        plt.title(f'{self.dim} Stock Price Simulation Paths')
-        plt.legend()
-        
-        plt.show()
