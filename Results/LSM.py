@@ -159,7 +159,6 @@ class MonteCarloOptionPricing:
         Parameters:
         α (float): Mean of log-normal jump size
         β (float): Volatility of log-normal jump size
-        λ (float): Intensity rate of the Poisson process
         
         Returns:
         np.ndarray: Simulated paths of the asset price
@@ -195,7 +194,7 @@ class MonteCarloOptionPricing:
 
         return self.S
 
-    def CEV(self,γ: float):
+    def CEV(self, γ: float):
         """
         Generate CEV paths according to Algorithm 5. 
         
@@ -255,14 +254,13 @@ class MonteCarloOptionPricing:
     
         return value
     
-    def merton_jump_option_value(self, α, β, λ, max_iter=100 , tol=1e-15):
+    def merton_jump_option_value(self, α, β, max_iter=100 , tol=1e-15):
         """ 
         Semi-closed form valuation of Merton's Log-Normal Jump-Diffusion Model for a European put option.
         
         Parameters:
         α (float): Mean of log-normal jump size
         β (float): Volatility of log-normal jump size
-        λ (float): Intensity rate of the Poisson process
         max_iter (int): Maximum number of iterations for the series expansion. Default is 100.
         tol (float): Stopping condition for the series expansion. Default is 1e-15.
         
@@ -276,6 +274,7 @@ class MonteCarloOptionPricing:
         r = self.r
         σ = self.σ
         T = self.T
+        λ = self.λ
         
         value = 0
         max_iter = int(max_iter)  # Ensure max_iter is an integer
