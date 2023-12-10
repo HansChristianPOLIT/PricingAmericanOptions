@@ -8,7 +8,6 @@ plt.rcParams['text.usetex'] = True
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['mathtext.fontset'] = 'cm'
 
-
 ############################
 ### Plot MC Sample Paths ###
 ############################

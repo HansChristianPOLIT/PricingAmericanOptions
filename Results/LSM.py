@@ -365,4 +365,8 @@ class MonteCarloOptionPricing:
             
         self.V0 = df * np.average(V)
         
-        return self.V0, self.exercise_times, self.payoffs
+        # Calculate the standard error
+        V_variance = np.var(V)
+        self.standard_error = np.sqrt(V_variance / dim)
+        
+        return self.V0, self.exercise_times, self.payoffs, self.standard_error

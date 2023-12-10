@@ -4,7 +4,7 @@ from scipy import stats
 from scipy.interpolate import interp1d
 
 class DynamicChebyshev:
-    def __init__(self, r, S0: float, K: float, T: float, σ: float,
+    def __init__(self, r, S0: float, K: float, T: float, σ: float, λ: float,
                  dim: int, n: int, n_chebyshev_pol: int, seed: int, use_AV: bool = False):
         """ 
         Class for pricing American OptionsLSM. 
@@ -15,6 +15,7 @@ class DynamicChebyshev:
         T (float): time to maturity, in years, a float number
         r (float): risk-free interest rate
         σ (float): volatility coefficient for diffusion
+        λ (float): Intensity rate of the Poisson process
         dim (int): number of paths to simulate
         n (int): between time 0 and time T, the number of time steps 
         n_chebyshev_pol (int): degree of chebyshev polynomials
@@ -35,6 +36,7 @@ class DynamicChebyshev:
         self.K = K
         self.T = T
         self.σ = σ
+        self.λ = λ
         self.n = n
         self.n_chebyshev_pol = n_chebyshev_pol 
         self.n_chebyshev_point = self.n_chebyshev_pol + 1 
@@ -54,6 +56,10 @@ class DynamicChebyshev:
             self.Z = np.concatenate((Z_half, -Z_half), axis=0)  # Antithetic variates. Creating full matrix self:Z by concatenating Z_half with its negation -Z.half.
         else:
             self.Z = np.random.normal(0, 1, (self.dim, self.n_chebyshev_point))
+            
+        # Generate Poisson and (log-)normal random jumps for all paths and time steps at once
+        self.N = np.random.poisson(self.λ*self.Δ, (self.dim, self.n_chebyshev_point))  # Poisson process for the number of jumps
+        self.Z_2 = np.random.normal(0, 1, (self.dim, self.n_chebyshev_point))  # Normal random variables for the jump sizes
 
     def calculate_truncated_domain_GBM(self):
         """ 
@@ -75,14 +81,13 @@ class DynamicChebyshev:
 
         return χ
     
-    def calculate_truncated_domain_JumpMerton(self, α: float, β: float, λ: float):
+    def calculate_truncated_domain_JumpMerton(self, α: float, β: float):
         """ 
         Defines truncated general domain, χ, for Jump Merton.
         
         Parameters:
         α (float): Mean of log-normal jump size
         β (float): Volatility of log-normal jump size
-        λ (float): Intensity rate of the Poisson process
 
         Returns:
         list: A list containing the lower and upper bounds of the truncated domain.
@@ -93,6 +98,7 @@ class DynamicChebyshev:
         r = self.r
         T = self.T
         σ = self.σ
+        λ = self.λ
 
         μ = np.log(S0) + (r - 0.5*σ**2 - λ*(np.exp(α + 0.5*β**2) - 1))*T
         trunc = 12 * np.sqrt(T) * σ # define truncation
@@ -192,7 +198,7 @@ class DynamicChebyshev:
         
         return x_next
         
-    def generate_Jump_path(self, xknots, α: float, β: float, λ: float):
+    def generate_Jump_path(self, xknots, α: float, β: float):
         """
         Generates paths for the Merton Jump Diffusion model assuming log-normal distribution of shocks.
 
@@ -200,7 +206,6 @@ class DynamicChebyshev:
         xknots (numpy.ndarray): Initial values of the asset at each point in the Chebyshev grid.
         α (float): Mean of log-normal jump size.
         β (float): Volatility of log-normal jump size.
-        λ (float): Intensity rate of the Poisson process.
 
         Returns:
         numpy.ndarray: Simulated paths of the asset price.
@@ -209,7 +214,10 @@ class DynamicChebyshev:
         # unpack 
         Δ = self.Δ
         σ = self.σ
+        λ = self.λ
         Z = self.Z
+        Z_2 = self.Z_2
+        N = self.N
         r = self.r 
         n_chebyshev_point = self.n_chebyshev_point
         x_next = self.x_next
@@ -217,10 +225,6 @@ class DynamicChebyshev:
         
         # drift corrected term
         c = r - 0.5*σ**2 - λ*(np.exp(α + 0.5*β**2) - 1)
-        
-        # Generate Poisson and (log-)normal random jumps for all paths and time steps at once
-        N = np.random.poisson(λ*Δ, (self.dim, self.n_chebyshev_point))  # Poisson process for the number of jumps
-        Z_2 = np.random.normal(0, 1, (self.dim, self.n_chebyshev_point))  # Normal random variables for the jump sizes
         
         # Calculate the jump sizes for all paths and time steps
         M = α * N + β*np.sqrt(N)*Z_2
@@ -330,6 +334,7 @@ class DynamicChebyshev:
         S0 = self.S0
         V = self.V
         C = self.C
+        dim = self.dim
         
         # step 1: terminal period, t=T
         payoff = np.maximum(K - np.exp(xknots), 0) # remember to exponentiate since we have form S = e^{x}
@@ -345,4 +350,8 @@ class DynamicChebyshev:
         C0 = np.exp(-r*Δ)*Γ@V[:,0]
         self.V0 = interp1d(xknots, C0, kind='linear', fill_value="extrapolate")(np.log(S0))
         
-        return self.V0
+        # Calculate the standard error
+        V_variance = np.var(V)
+        self.standard_error = np.sqrt(V_variance / dim)
+        
+        return self.V0, self.standard_error
