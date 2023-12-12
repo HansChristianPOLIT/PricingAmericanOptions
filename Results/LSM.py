@@ -333,7 +333,7 @@ class MonteCarloOptionPricing:
             
         # last day cashflow == last day intrinsic value
         V = np.copy(self.intrinsic_val[:,-1])
-
+        
         # Backward Induction
         for i in range(n - 2, 0, -1): # start at second to last and end at second to first
             # a. find itm path 
@@ -345,7 +345,8 @@ class MonteCarloOptionPricing:
             
             # b. run regression and calculate conditional expectation (LSM)
             # initialize continuation value
-            C = np.zeros(shape=dim)
+            self.C = np.zeros(shape=dim)
+            C = self.C
             # if only 5 itm paths (probably, otm options), then continuation value is zero
             if len(itm_path[0]) > 5:
                 rg = np.polyfit(S_itm, V_itm, poly_degree)  # polynomial regression

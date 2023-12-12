@@ -101,7 +101,7 @@ class DynamicChebyshev:
         λ = self.λ
 
         μ = np.log(S0) + (r - 0.5*σ**2 - λ*(np.exp(α + 0.5*β**2) - 1))*T
-        trunc = 12 * np.sqrt(T) * σ # define truncation
+        trunc = 6 * np.sqrt(T) * σ # define truncation
         χ = [μ - trunc, μ + trunc] # truncated domain
 
         return χ
