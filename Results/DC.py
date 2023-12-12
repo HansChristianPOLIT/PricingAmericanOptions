@@ -297,20 +297,7 @@ class DynamicChebyshev:
             cheb_fun = interp1d(xknots, y, kind='linear', fill_value="extrapolate")
             chebypol_eval = cheb_fun(x_next)*check
             Γ[:,j] = np.sum(chebypol_eval, axis=0) / valid_points
-        
-        ### OLD; non-vectorized ###
-        # step 2: interpolate over domain
-        #for j in range(n_chebyshev_point):
-        #    y = np.zeros(n_chebyshev_point)
-        #    y[j] = 1
-        #    cheb_fun = interp1d(xknots, y, kind='linear', fill_value="extrapolate")
-        #    chebypol_eval[:,:,j] = cheb_fun(x_next)*check
-        
-        # step 3: compute generalized moments
-        #for i in range(n_chebyshev_point):
-        #    for j in range(n_chebyshev_point):
-        #        Γ[i,j] = np.sum(chebypol_eval[:,i,j])/valid_points[i]
-        
+
         return Γ
     
     def price_option_with_dynamic_chebyshev(self, xknots, Γ):
@@ -344,7 +331,6 @@ class DynamicChebyshev:
         for i in range(n-2, -1, -1):
             C[:,i] = np.exp(-r*Δ)*Γ@V[:,i+1] # discounted next-period continuation value
             V[:,i] = np.where(payoff>C[:,i], payoff, C[:,i])
-            #V[:,i] = np.max(np.column_stack((payoff, C[:,i], np.zeros_like(payoff))), axis=1)
         
         # step 3: time zero, t=0
         C0 = np.exp(-r*Δ)*Γ@V[:,0]
