@@ -42,6 +42,7 @@ class MonteCarloOptionPricing:
         self.df = np.exp(-self.r*self.Δ)
         self.use_AV = use_AV
         
+        ### Generate the Sources of Randomness ###
         if use_AV:
             assert dim % 2 == 0, 'For AV, the number of paths ("dim") must be even'
             half_dim = self.dim // 2
