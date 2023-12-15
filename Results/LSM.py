@@ -288,7 +288,7 @@ class MonteCarloOptionPricing:
             d2 = d1 - σ_k*np.sqrt(T)
             BS_value = K * np.exp(-r_k*T)*stats.norm.cdf(-d2) - S0*stats.norm.cdf(-d1)
             
-            # Loop to find semi closed solutino
+            # Loop to find semi-closed solution
             sum_k = (np.exp(-(np.exp(α + 0.5*β**2))*λ*T) \
                     * ((np.exp(α + 0.5*β**2))*λ*T)**k / (factorial(k))) * BS_value
             value += sum_k
