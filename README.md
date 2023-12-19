@@ -1,6 +1,2 @@
 # PricingAmericanOptions
-We will use the Dynamic Chebyshev method to price American Options, and
-then compare it to the least square Monte Carlo method, using three different models
-for stock prices. We will challenge the results by performing robustness analysis, and
-dive deeper into the simulation aspect of the methods by deploying variance reduction
-technique.
+We examine the pricing of American options, focusing on overcoming the computational challenge of their early exercise feature. Using the regression-based Least-Squares Monte Carlo (LSM) method and the interpolation-based Dynamic Chebyshev method, we conduct numerical experiments based on the Black-Scholes model and the Merton Jump-Diffusion model. We confirm the convergence when pricing American options for LSM and Dynamic Chebyshev. Although we can accurately price options using Dynamic Chebyshev, our implementation is significantly slower than LSM. When using Dynamic Chebyshev, we also stress the need for an adjusted truncation domain in the Merton Jump-Diffusion model. For LSM, the paper explores variance reduction techniques, particularly the effectiveness of control variates sampled at exercise time, which offers advantages over traditional sampling at expiry.
